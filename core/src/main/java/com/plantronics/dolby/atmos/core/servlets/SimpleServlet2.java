@@ -16,10 +16,13 @@
 package com.plantronics.dolby.atmos.core.servlets;
 
 import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
+import java.io.RandomAccessFile;
 import java.rmi.ServerException;
 import java.util.Iterator;
 
@@ -34,7 +37,6 @@ import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.apache.sling.api.servlets.HttpConstants;
-import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Component;
@@ -137,58 +139,43 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 		return -1;
 	}
 
-	// Stores customer data in the Adobe CQ JCR
-	public int injestCustData(String firstName, String lastName, String address, String desc) {
-		int num = 0;
+	public  void replaceStringInFile(File dir, String fileName, String match, String replacingString){
+		//Open file in read-write mode
+		RandomAccessFile raf;
 		try {
+			raf = new RandomAccessFile("contents.txt","rw");
+		
 
-			// Invoke the adaptTo method to create a Session used to create a QueryManager
-			ResourceResolver resourceResolver = resolverFactory.getAdministrativeResourceResolver(null);
-			session = resourceResolver.adaptTo(Session.class);
+		String bookCode ="200";
+		String bookName = "Mastering JSP ";
+		String bookMas;
 
-			// Create a node that represents the root node
-			Node root = session.getRootNode();
+		String line=raf.readLine();
 
-			// Get the content node in the JCR
-			Node content = root.getNode("content");
+		while( line != null){
 
-			// Determine if the content/customer node exists
-			Node customerRoot = null;
-			int custRec = doesCustExist(content);
+		long filePos=raf.getFilePointer(); //change here
 
-			log.info("*** Value of  custRec is ..." + custRec);
-			// -1 means that content/customer does not exist
-			if (custRec == -1) {
-				// content/customer does not exist -- create it
-				customerRoot = content.addNode("customerexcel");
-			} else {
-				// content/customer does exist -- retrieve it
-				customerRoot = content.getNode("customerexcel");
-			}
+		String s=line.substring(0,3); 
 
-			int custId = custRec + 1; // assign a new id to the customer node
-
-			// Store content from the client JSP in the JCR
-			Node custNode = customerRoot.addNode("customer" + firstName + lastName + custId, "nt:unstructured");
-
-			// make sure name of node is unique
-			custNode.setProperty("id", custId);
-			custNode.setProperty("firstName", firstName);
-			custNode.setProperty("lastName", lastName);
-			custNode.setProperty("address", address);
-			custNode.setProperty("desc", desc);
-
-			// Save the session changes and log out
-			session.save();
-			session.logout();
-			return custId;
+		if (s.equals(bookCode)){ 
+		bookMas=bookCode+" "+bookName;
+		raf.seek(filePos);
+		raf.writeBytes(bookMas);
 		}
-
-		catch (Exception e) {
-			log.error("RepositoryException: " + e);
+		line=raf.readLine();
 		}
-		return 0;
-	}
+		raf.close();
+		} catch (FileNotFoundException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		} catch (IOException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+		}	
+	
+
 
 	/*
 	 * Determines if the content/customer node exists This method returns these
