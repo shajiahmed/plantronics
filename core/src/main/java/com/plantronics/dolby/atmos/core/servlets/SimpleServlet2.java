@@ -15,6 +15,17 @@
  */
 package com.plantronics.dolby.atmos.core.servlets;
 
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.PrintWriter;
+import java.rmi.ServerException;
+import java.util.Iterator;
+
+import javax.jcr.Node;
+import javax.jcr.Session;
+import javax.servlet.Servlet;
 
 import org.apache.jackrabbit.commons.JcrUtils;
 import org.apache.sling.api.SlingHttpServletRequest;
@@ -25,26 +36,11 @@ import org.apache.sling.api.resource.ResourceResolverFactory;
 import org.apache.sling.api.servlets.HttpConstants;
 import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
-import org.apache.sling.api.resource.ValueMap;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import jxl.Cell;
-import jxl.Sheet;
-import jxl.Workbook;
-
-import javax.jcr.Node;
-import javax.jcr.Session;
-import javax.servlet.Servlet;
-import javax.servlet.ServletException;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.PrintWriter;
-import java.rmi.ServerException;
-import java.util.Iterator;
 
 /**
  * Servlet that writes some sample content into the response. It is mounted for
@@ -52,64 +48,61 @@ import java.util.Iterator;
  * {@link SlingSafeMethodsServlet} shall be used for HTTP methods that are
  * idempotent. For write operations use the {@link SlingAllMethodsServlet}.
  */
-@Component(service=Servlet.class,
-           property={
-                   Constants.SERVICE_DESCRIPTION + "=Simple Demo Servlet",
-                   "sling.servlet.methods=" + HttpConstants.METHOD_GET,
-                   "sling.servlet.paths=/bin/test.txt",
-                   "sling.servlet.extensions=" + "txt"
-           })
+@Component(service = Servlet.class, property = { Constants.SERVICE_DESCRIPTION + "=Simple Demo Servlet",
+		"sling.servlet.methods=" + HttpConstants.METHOD_GET, "sling.servlet.paths=/bin/test.txt",
+		"sling.servlet.extensions=" + "txt" })
 
 public class SimpleServlet2 extends SlingSafeMethodsServlet {
 
-    private static final long serialVersionUid = 1L;
-    @Reference
+	private static final long serialVersionUid = 1L;
+	@Reference
 	private ResourceResolverFactory resolverFactory;
-    private Session session;
+	private Session session;
 
-    /** Default log. */
+	/** Default log. */
 	protected final Logger log = LoggerFactory.getLogger(this.getClass());
-    @Override
+
+	@Override
 	protected void doGet(SlingHttpServletRequest request, SlingHttpServletResponse response)
 			throws ServerException, IOException {
 
 		try {
-//			final boolean isMultipart = org.apache.commons.fileupload.servlet.ServletFileUpload
-//					.isMultipartContent(request);
+			// final boolean isMultipart =
+			// org.apache.commons.fileupload.servlet.ServletFileUpload
+			// .isMultipartContent(request);
 			PrintWriter out = null;
 
 			log.info("GET THE STREAM");
 
 			out = response.getWriter();
 			StringBuffer sb = new StringBuffer();
-			
-				final java.util.Map<String, org.apache.sling.api.request.RequestParameter[]> params = request
-						.getRequestParameterMap();
-				for (final java.util.Map.Entry<String, org.apache.sling.api.request.RequestParameter[]> pairs : params
-						.entrySet()) {
-					final String k = pairs.getKey();
-					final org.apache.sling.api.request.RequestParameter[] pArr = pairs.getValue();
-					final org.apache.sling.api.request.RequestParameter param = pArr[0];
 
-					sb.append(param + "=" + pArr + ":");
-				}
+			final java.util.Map<String, org.apache.sling.api.request.RequestParameter[]> params = request
+					.getRequestParameterMap();
+			for (final java.util.Map.Entry<String, org.apache.sling.api.request.RequestParameter[]> pairs : params
+					.entrySet()) {
+				final String k = pairs.getKey();
+				final org.apache.sling.api.request.RequestParameter[] pArr = pairs.getValue();
+				final org.apache.sling.api.request.RequestParameter param = pArr[0];
 
-				ResourceResolver resourceResolver = resolverFactory.getAdministrativeResourceResolver(null);
-				String path = "/content/dam/plantronics/Plantronics.xls";
-				Resource dataResource = resourceResolver.getResource(path + "/jcr:content");
-				InputStream is = dataResource.adaptTo(InputStream.class);
+				sb.append(param + "=" + pArr + ":");
+			}
 
-				log.info("GET THE STREAM22");
-				String code = request.getParameter("code");
-				// Save the uploaded file into the Adobe CQ DAM
-				int excelValue = injectSpreadSheet(is, code );
-				if (excelValue == 0)
-					out.println(
-							"Customer name " + code + " not found in excel" 
-									);
-				else
-					out.println("Customer name " + code + " exists in excel");
-			
+			ResourceResolver resourceResolver = resolverFactory.getAdministrativeResourceResolver(null);
+			String path = "/content/dam/plantronics/dupcodes.csv";
+			Resource dataResource = resourceResolver.getResource(path + "/jcr:content");
+			InputStream is = dataResource.adaptTo(InputStream.class);
+
+			// FileInputStream is = dataResource.adaptTo(FileInputStream.class);
+			log.info("GET THE STREAM22");
+			String code = request.getParameter("code");
+			// Save the uploaded file into the Adobe CQ DAM
+			int excelValue = injectSpreadSheet(is, code);
+			if (excelValue == 0)
+				out.println("Customer name " + code + " not found in excel");
+			else
+				out.println("Customer name " + code + " exists in excel");
+
 		}
 
 		catch (Exception e) {
@@ -120,50 +113,26 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 
 	// Get data from the excel spreadsheet
 	public int injectSpreadSheet(InputStream is, String code) {
+
+		BufferedReader br = null;
+
 		try {
 
-			log.info("GET THE STREAM33");
-			// Get the spreadsheet
-			Workbook workbook = Workbook.getWorkbook(is);
+			br = new BufferedReader(new InputStreamReader(is));
 
-			log.info("GET THE STREAMWorkbook");
-			Sheet sheet = workbook.getSheet(0);
-			
-			//Sheet sh = workbook.getSheet("Duplicates");
+			String line = null;
 
-			log.info("GET THE STREAMWorkbook");
-			String firstName = "";
-			String lastName = "";
-			String address = "";
-			String desc = "";
-
-			log.info("GET THE STREAM44");
-			for (int index = 0; index < 4; index++) {
-				Cell a3 = sheet.getCell(0, index + 2);
-				Cell b3 = sheet.getCell(1, index + 2);
-				Cell c3 = sheet.getCell(2, index + 2);
-				Cell d3 = sheet.getCell(3, index + 2);
-
-				firstName = a3.getContents();
-				lastName = b3.getContents();
-				address = c3.getContents();
-				desc = d3.getContents();
-				if(firstName.equals(code)) {
+			while ((line = br.readLine()) != null) {
+				if (line.equalsIgnoreCase(code)) {
 					return 1;
 				}
-				log.debug("Continuing to find cust data ..." + firstName);
-
-				// Store the excel data into the Adobe AEM JCR
-				//injestCustData(firstName, lastName, address, desc);
 
 			}
 
+			log.info("Line entered : " + line);
 			return 0;
-
-		}
-
-		catch (Exception e) {
-			e.printStackTrace();
+		} catch (Exception e) {
+			log.error(" error occured {}", e);
 		}
 		return -1;
 	}
