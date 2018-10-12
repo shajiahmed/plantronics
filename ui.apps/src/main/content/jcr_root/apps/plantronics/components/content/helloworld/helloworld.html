@@ -15,9 +15,9 @@
 */-->
 <p data-sly-test="${properties.text}">Text property: ${properties.text}</p>
 
-<pre data-sly-use.hello="com.plantronics.dolby.atmos.core.models.HelloWorldModel">
-HelloWorldModel says:
-${hello.message}
+
+HelloWorldModel says:123
+
 <div>
 <h2>Code search</h2>
      
@@ -35,25 +35,7 @@ ${hello.message}
                
                 <input type="submit" value="Submit" id="upload-button-id" /></p>
              
-            <script>
-           
-            $( 'form#form-id' ).submit( function(e){
-              
-              e.preventDefault();
-                $.ajax({
-                    url: "/bin/test.txt",
-                    data: $('#form-id').serialize(),
-                    cache: false,
-                    processData: false,
-                    contentType: false,
-                    type: 'GET',
-                    success: function (dataofconfirm) {
-                    	 alert(dataofconfirm); //display the data returned by the servlet
-                    }
-                });
-                return false;
-  				});
-            </script>
+            
   
             <!-- Placeholders for messages set by event handlers -->
             <p id="upload-status"></p>
