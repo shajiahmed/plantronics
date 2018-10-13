@@ -16,33 +16,52 @@
 package com.plantronics.dolby.atmos.core.servlets;
 
 import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
-import java.io.RandomAccessFile;
 import java.rmi.ServerException;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Date;
+import java.util.HashMap;
 import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
 
 import javax.jcr.Node;
+import javax.jcr.Property;
+import javax.jcr.PropertyType;
+import javax.jcr.RepositoryException;
 import javax.jcr.Session;
+import javax.jcr.Value;
+import javax.jcr.ValueFactory;
 import javax.servlet.Servlet;
 
 import org.apache.jackrabbit.commons.JcrUtils;
+import org.apache.jackrabbit.commons.webdav.JcrValueType;
 import org.apache.sling.api.SlingHttpServletRequest;
 import org.apache.sling.api.SlingHttpServletResponse;
+import org.apache.sling.api.resource.ModifiableValueMap;
 import org.apache.sling.api.resource.Resource;
 import org.apache.sling.api.resource.ResourceResolver;
 import org.apache.sling.api.resource.ResourceResolverFactory;
+import org.apache.sling.api.resource.ResourceUtil;
 import org.apache.sling.api.servlets.HttpConstants;
+import org.apache.sling.api.servlets.SlingAllMethodsServlet;
 import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+
+import com.day.cq.commons.jcr.JcrConstants;
 
 /**
  * Servlet that writes some sample content into the response. It is mounted for
@@ -60,6 +79,8 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 	@Reference
 	private ResourceResolverFactory resolverFactory;
 	private Session session;
+	private static final String BASE_PATH = "/content/dolbyatmos/";
+	private static final String ACTIVATION_PATH = BASE_PATH + "activation";
 
 	/** Default log. */
 	protected final Logger log = LoggerFactory.getLogger(this.getClass());
@@ -94,17 +115,20 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 			String path = "/content/dam/plantronics/dupcodes.csv";
 			Resource dataResource = resourceResolver.getResource(path + "/jcr:content");
 			InputStream is = dataResource.adaptTo(InputStream.class);
-
+			
 			// FileInputStream is = dataResource.adaptTo(FileInputStream.class);
 			log.info("GET THE STREAM22");
 			String code = request.getParameter("code");
+			String email = request.getParameter("email");
 			// Save the uploaded file into the Adobe CQ DAM
 			int excelValue = injectSpreadSheet(is, code);
 			if (excelValue == 0)
 				out.println("Customer name " + code + " not found in excel");
-			else
-				out.println("Customer name " + code + " exists in excel");
-
+			else {
+				
+				String newcode = injestCustData(code, email);
+				out.println("Customer name " + code + " exists in excel, new code is " + newcode);
+			}
 		}
 
 		catch (Exception e) {
@@ -130,7 +154,6 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 				}
 
 			}
-
 			log.info("Line entered : " + line);
 			return 0;
 		} catch (Exception e) {
@@ -139,76 +162,125 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 		return -1;
 	}
 
-	public  void replaceStringInFile(File dir, String fileName, String match, String replacingString){
-		//Open file in read-write mode
-		RandomAccessFile raf;
+	// Get data from the excel spreadsheet
+	public String getNewCode(String lastcodeUsed) {
+
+		BufferedReader br = null;
+		String newCode = "";
+
 		try {
-			raf = new RandomAccessFile("contents.txt","rw");
-		
+			ResourceResolver resourceResolver = resolverFactory.getAdministrativeResourceResolver(null);
 
-		String bookCode ="200";
-		String bookName = "Mastering JSP ";
-		String bookMas;
+			String path2 = "/content/dam/plantronics/newcodesonly.csv";
+			Resource newcodeRsc = resourceResolver.getResource(path2 + "/jcr:content");
+			InputStream is = newcodeRsc.adaptTo(InputStream.class);
 
-		String line=raf.readLine();
+			br = new BufferedReader(new InputStreamReader(is));
 
-		while( line != null){
+			String line = null;
 
-		long filePos=raf.getFilePointer(); //change here
-
-		String s=line.substring(0,3); 
-
-		if (s.equals(bookCode)){ 
-		bookMas=bookCode+" "+bookName;
-		raf.seek(filePos);
-		raf.writeBytes(bookMas);
-		}
-		line=raf.readLine();
-		}
-		raf.close();
-		} catch (FileNotFoundException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		} catch (IOException e) {
-			// TODO Auto-generated catch block
-			e.printStackTrace();
-		}
-		}	
-	
-
-
-	/*
-	 * Determines if the content/customer node exists This method returns these
-	 * values: -1 - if customer does not exist 0 - if content/customer node exists;
-	 * however, contains no children number - the number of children that the
-	 * content/customer node contains
-	 */
-	private int doesCustExist(Node content) {
-		try {
-			int index = 0;
-			int childRecs = 0;
-
-			java.lang.Iterable<Node> custNode = JcrUtils.getChildNodes(content, "customerexcel");
-			Iterator it = custNode.iterator();
-
-			// only going to be 1 content/customer node if it exists
-			if (it.hasNext()) {
-				// Count the number of child nodes in content/customer
-				Node customerRoot = content.getNode("customerexcel");
-				Iterable itCust = JcrUtils.getChildNodes(customerRoot);
-				Iterator childNodeIt = itCust.iterator();
-
-				// Count the number of customer child nodes
-				while (childNodeIt.hasNext()) {
-					childRecs++;
-					childNodeIt.next();
+			while ((line = br.readLine()) != null) {
+				if (lastcodeUsed.equals("")) {
+					return line;
 				}
-				return childRecs;
-			} else
-				return -1; // content/customer does not exist
+				if (line.equalsIgnoreCase(lastcodeUsed)) {
+					newCode = br.readLine();
+					return newCode;
+				}
+
+			}
+
+			log.info("Line entered : " + line);
+			return newCode;
+		} catch (Exception e) {
+			log.error(" error occured {}", e);
+		}
+		return newCode;
+	}
+
+	// Stores customer data in the Adobe CQ JCR
+	public String injestCustData(String oldCode, String email) {
+		int num = 0;
+		String newCode = "";
+		try {
+
+			// Invoke the adaptTo method to create a Session used to create a QueryManager
+			ResourceResolver resourceResolver = resolverFactory.getAdministrativeResourceResolver(null);
+			session = resourceResolver.adaptTo(Session.class);
+
+			Map<String, Object> props = new HashMap<>();
+			props.put(JcrConstants.JCR_PRIMARYTYPE, "sling:OrderedFolder");
+			Resource folder = ResourceUtil.getOrCreateResource(resourceResolver, BASE_PATH, props, null, true);
+			Resource activationRsc = ResourceUtil.getOrCreateResource(resourceResolver, ACTIVATION_PATH,
+					JcrConstants.NT_UNSTRUCTURED, JcrConstants.NT_UNSTRUCTURED, false);
+			ModifiableValueMap activationProperties = activationRsc.adaptTo(ModifiableValueMap.class);
+			// JsonArray codesArray;
+			String[] codesArray;
+			List<String> list = new ArrayList<String>();
+			if (activationProperties.containsKey("codes")) {
+				codesArray = activationProperties.get("codes", String[].class);
+				list = Arrays.asList(codesArray);
+				JsonObject crxcode = getNewCodeforOldCode(list, oldCode);
+				String lastcode = "";
+				if (crxcode != null) {
+					if(crxcode.has("lastcodeused"))
+						lastcode = crxcode.get("lastcodeused").getAsString();
+					lastcode = lastcode == null ? "" : lastcode;
+					if (lastcode.equals("") && crxcode.has("newCode")) {
+						newCode = crxcode.get("newCode").getAsString();
+						return newCode;
+					} else {
+						newCode = getNewCode(lastcode);
+					}
+				}
+			} else {
+				list = new ArrayList<String>();
+				// codesArray = new JsonArray();
+				newCode = getNewCode("");
+			}
+			JsonObject code = new JsonObject();
+			code.addProperty("oldCode", oldCode);
+			code.addProperty("newCode", newCode);
+			code.addProperty("email", email);
+			Date date = new Date();
+			code.addProperty("date", date.toString());
+			String codeStr = code.toString();
+			// codesArray.add(code);
+			List<String> l = new ArrayList<String>(list);
+			l.add(codeStr);
+			activationProperties.remove("codes");
+			activationProperties.put("codes", l.toArray());
+
+			resourceResolver.commit();
+			return newCode;
+		}
+
+		catch (Exception e) {
+			log.error("RepositoryException: {} ", e);
+			return "";
+		}
+
+	}
+
+	public JsonObject getNewCodeforOldCode(List<String> crxCodes, String codeRequested) {
+		JsonObject jsobj;
+		try {
+			for (String code : crxCodes) {
+				JsonParser parser = new JsonParser();
+				jsobj = parser.parse(code).getAsJsonObject();
+				String oldcode = jsobj.get("oldCode").getAsString();
+				String newcode = jsobj.get("newCode").getAsString();
+				if (oldcode.equals(codeRequested)) {
+					return jsobj;
+				}
+				jsobj = new JsonObject();
+				jsobj.addProperty("lastcodeused", newcode);
+				return jsobj;
+			}
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
-		return 0;
+		return null;
 	}
+
 }
