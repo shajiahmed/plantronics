@@ -48,13 +48,17 @@ import org.apache.sling.api.servlets.SlingSafeMethodsServlet;
 import org.osgi.framework.Constants;
 import org.osgi.service.component.annotations.Component;
 import org.osgi.service.component.annotations.Reference;
+import org.osgi.service.metatype.annotations.AttributeDefinition;
+import org.osgi.service.metatype.annotations.AttributeType;
 import org.osgi.service.metatype.annotations.Designate;
+import org.osgi.service.metatype.annotations.ObjectClassDefinition;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import com.day.cq.commons.jcr.JcrConstants;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
+import com.plantronics.dolby.atmos.core.configuration.DuplicateCodeConfigService;
 
 /**
  * Servlet that writes some sample content into the response. It is mounted for
@@ -68,15 +72,19 @@ import com.google.gson.JsonParser;
 
 public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 
-	private static final long serialVersionUid = 1L;
+	/**
+	 * 
+	 */
+	private static final long serialVersionUID = 1L;
+	//private static final long serialVersionUid = 1L;
 	@Reference
 	private ResourceResolverFactory resolverFactory;
-	private Session session;
+
 	public static final String SERVICE_USER_NAME = "datawrite";
 
 	ResourceResolver resourceResolver;
-	//@Reference
-	//private DuplicateCodeConfigService config;
+	@Reference
+	private DuplicateCodeConfigService config;
 	/** Default log. */
 	protected final Logger log = LoggerFactory.getLogger(this.getClass());
 
@@ -142,8 +150,8 @@ public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 		BufferedReader br = null;
 
 		try {
-			//String path = config.getNewcodesFile();
-			String path = "/content/dam/plantronics/dupcodes.csv";
+			String path = config.getDupcodesFile();
+			//String path = "/content/dam/plantronics/dupcodes.csv";
 			Resource dataResource = resourceResolver.getResource(path + "/jcr:content");
 			InputStream is = dataResource.adaptTo(InputStream.class);
 
@@ -174,8 +182,8 @@ public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 
 		try {
 
-			//String path2 = config.getNewcodesFile();
-			String path2 = "/content/dam/plantronics/newcodes.csv";
+			String path2 = config.getNewcodesFile();
+			//String path2 = "/content/dam/plantronics/newcodes.csv";
 			Resource newcodeRsc = resourceResolver.getResource(path2 + "/jcr:content");
 			InputStream is = newcodeRsc.adaptTo(InputStream.class);
 
@@ -211,12 +219,12 @@ public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 
 			// Invoke the adaptTo method to create a Session used to create a QueryManager
 
-			session = resourceResolver.adaptTo(Session.class);
+			
 
 			Map<String, Object> props = new HashMap<>();
 			props.put(JcrConstants.JCR_PRIMARYTYPE, "sling:OrderedFolder");
-			String basepath = "/content/dolbyatmos/" ;//config.getBasepath();
-			String activationpath = basepath + "activationcodes"; //config.getBasepath() + config.getActivationcodesNode();
+			String basepath =config.getBasepath();// "/content/dolbyatmos/" ;//
+			String activationpath =config.getBasepath() + config.getActivationcodesNode();// basepath + "activationcodes"; //
 			Resource folder = ResourceUtil.getOrCreateResource(resourceResolver, basepath, props, null,
 					true);
 			Resource activationRsc = ResourceUtil.getOrCreateResource(resourceResolver,
@@ -277,8 +285,8 @@ public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 		JsonObject jsobj=null;
 		List<String> crxCodes;
 		try {
-			String basepath = "/content/dolbyatmos/" ;//config.getBasepath();
-			String activationpath = basepath + "activationcodes"; //config.getBasepath() + config.getActivationcodesNode();
+			String basepath = config.getBasepath();//"/content/dolbyatmos/" ;/
+			String activationpath = config.getBasepath() + config.getActivationcodesNode();//basepath + "activationcodes"; //
 		
 			Resource activationRsc = resourceResolver
 					.getResource(activationpath);
@@ -318,6 +326,15 @@ public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 			}
 		});
 	}
+	/*@ObjectClassDefinition(name = "Duplicate Acticate codes servlet - OSGi")
+    public @interface Configuration {
 
+	    @AttributeDefinition(
+	        name = "String Property",
+	        description = "Sample String property",
+	        type = AttributeType.STRING
+	    )
+	    String servicename_propertyname_string() default "foo";
+    }*/
 
 }

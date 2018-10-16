@@ -1,4 +1,4 @@
-package com.plantronics.dolby.core.configuration;
+package com.plantronics.dolby.atmos.core.configuration;
 
 import org.osgi.service.component.annotations.Activate;
 import org.osgi.service.component.annotations.Component;
