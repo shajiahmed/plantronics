@@ -303,7 +303,7 @@ public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 			}
 			
 
-			return jsobj;
+			return null;
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
