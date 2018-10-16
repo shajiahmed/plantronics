@@ -16,7 +16,7 @@
  $( 'form#form-id' ).submit( function(e){              
               e.preventDefault();            
                 $.ajax({
-                    url: "/bin/test.txt",
+                    url: "/bin/dupcodes.txt",
                     data: $('#form-id').serialize(),
                     cache: false,
                     processData: false,

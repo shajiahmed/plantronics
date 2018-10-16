@@ -63,10 +63,10 @@ import com.google.gson.JsonParser;
  * idempotent. For write operations use the {@link SlingAllMethodsServlet}.
  */
 @Component(service = Servlet.class, immediate=true, property = { Constants.SERVICE_DESCRIPTION + "=Simple Demo Servlet",
-		"sling.servlet.methods=" + HttpConstants.METHOD_GET, "sling.servlet.paths=/bin/test.txt",
+		"sling.servlet.methods=" + HttpConstants.METHOD_GET, "sling.servlet.paths=/bin/dupcodes.txt",
 		"sling.servlet.extensions=" + "txt" })
 
-public class SimpleServlet2 extends SlingSafeMethodsServlet {
+public class DuplicateActivationCodesServlet extends SlingSafeMethodsServlet {
 
 	private static final long serialVersionUid = 1L;
 	@Reference
@@ -97,16 +97,7 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 			out = response.getWriter();
 			StringBuffer sb = new StringBuffer();
 
-			final java.util.Map<String, org.apache.sling.api.request.RequestParameter[]> params = request
-					.getRequestParameterMap();
-			for (final java.util.Map.Entry<String, org.apache.sling.api.request.RequestParameter[]> pairs : params
-					.entrySet()) {
-				final String k = pairs.getKey();
-				final org.apache.sling.api.request.RequestParameter[] pArr = pairs.getValue();
-				final org.apache.sling.api.request.RequestParameter param = pArr[0];
-
-				sb.append(param + "=" + pArr + ":");
-			}
+		
 
 		
 
@@ -123,16 +114,16 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 				if (crxcode.has("newCode")) {
 					newCode = crxcode.get("newCode").getAsString();
 					date = crxcode.get("date").getAsString();
-					out.println("You have already created your new code " + code + " on " + date);
+					out.println("You have already created your new code " + newCode + " on " + date);
 				}
 			} else {
 				// Save the uploaded file into the Adobe CQ DAM
-				int excelValue = injectSpreadSheet( code);
+				int excelValue = findDuplicateCode( code);
 				if (excelValue == 0)
 					out.println("This code " + code + " is not a duplicated one");
 				else {
 
-					String newcode = injestCustData(code, email);
+					String newcode = persistCRXData(code, email);
 					out.println(
 							"Your new code for  " + code + " create, use this code to enter on xbox site " + newcode);
 				}
@@ -146,7 +137,7 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 	}
 
 	// Get data from the excel spreadsheet
-	public int injectSpreadSheet( String code) {
+	public int findDuplicateCode( String code) {
 
 		BufferedReader br = null;
 
@@ -213,7 +204,7 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 	}
 
 	// Stores customer data in the Adobe CQ JCR
-	public String injestCustData(String oldCode, String email) {
+	public String persistCRXData(String oldCode, String email) {
 		int num = 0;
 		String newCode = "";
 		try {
@@ -283,7 +274,7 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 	}
 
 	public JsonObject getNewCodeforOldCode(String codeRequested) {
-		JsonObject jsobj;
+		JsonObject jsobj=null;
 		List<String> crxCodes;
 		try {
 			String basepath = "/content/dolbyatmos/" ;//config.getBasepath();
@@ -308,10 +299,11 @@ public class SimpleServlet2 extends SlingSafeMethodsServlet {
 				if (oldcode.equals(codeRequested)) {
 					return jsobj;
 				}
-				jsobj = new JsonObject();
-
-				return jsobj;
+				
 			}
+			
+
+			return jsobj;
 		} catch (Exception e) {
 			e.printStackTrace();
 		}
