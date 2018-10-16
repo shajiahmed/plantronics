@@ -23,7 +23,7 @@
                     contentType: false,
                     type: 'GET',
                     success: function (dataofconfirm) {
-                    	 alert(dataofconfirm); //display the data returned by the servlet
+                    	 $('#result').text(dataofconfirm); //display the data returned by the servlet
                     }
                 });
                 return false;
